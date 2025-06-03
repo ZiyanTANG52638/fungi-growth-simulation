@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mycelial Growth Simulation with Enhanced Gesture Control</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0a0a0a;
+            font-family: Arial, sans-serif;
+            color: #fff;
+        }
+        canvas {
+            display: block;
+        }
+        #webcamCanvas {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 160px;
+            height: 120px;
+            border: 2px solid #555;
+            border-radius: 5px;
+            z-index: 20;
+        }
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 10;
+        }
+        .controls h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .controls label {
+            display: block;
+            margin-bottom: 8px;
+        }
+        .parenting-slider {
+            width: 200px;
+            margin-bottom: 15px;
+        }
+        .info-panel {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+            font-size: 14px;
+        }
+        button {
+            margin-right: 10px;
+            margin-bottom: 5px;
+            padding: 8px 12px;
+            background-color: #444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #555;
+        }
+        button.danger {
+            background-color: #a33;
+        }
+        button.danger:hover {
+            background-color: #c44;
+        }
+        button.success {
+            background-color: #3a3;
+        }
+        button.success:hover {
+            background-color: #4c4;
+        }
+        .legend {
+            position: absolute;
+            top: 10px;
+            right: 180px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border-radius: 50%;
+        }
+        #gestureInfo {
+            position: absolute;
+            top: 150px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            width: 160px;
+            font-size: 12px;
+            z-index: 20;
+        }
+        .gesture-mode {
+            position: absolute;
+            top: 250px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            width: 160px;
+            font-size: 12px;
+            z-index: 20;
+        }
+        .gesture-mode button {
+            margin: 2px;
+            padding: 5px;
+            font-size: 11px;
+            width: 70px;
+        }
+        #emotionState {
+            color: #63e6be;
+            font-weight: bold;
+        }
+        #gestureHighlight {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        #debugPanel {
+            position: absolute;
+            top: 350px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            width: 160px;
+            font-size: 10px;
+            z-index: 20;
+            color: #ccc;
+        }
+        .motion-indicator {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 10px;
+            height: 10px;
+            background-color: #ff0000;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+        .gesture-test-panel {
+            position: absolute;
+            bottom: 150px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            width: 160px;
+            font-size: 11px;
+            z-index: 20;
+        }
+        .camera-status {
+            position: absolute;
+            top: 480px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            width: 160px;
+            font-size: 11px;
+            z-index: 20;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-green { background-color: #4CAF50; }
+        .status-red { background-color: #f44336; }
+        .status-yellow { background-color: #ff9800; }
+        #fpsCounter {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <canvas id="webcamCanvas"></canvas>
+    <div class="motion-indicator" id="motionIndicator"></div>
+    <div id="gestureHighlight"></div>
+    
+    <div class="controls">
+        <h3>Simulation Controls</h3>
+        <label>
+            Parenting Style: <span id="parentingStyleLabel">Balanced</span>
+            <input type="range" id="parentingStyleSlider" class="parenting-slider" min="0" max="100" value="50">
+        </label>
+        <div>
+            <button id="traumaBtn" class="danger">Simulate Trauma Event</button>
+            <button id="healingBtn" class="success">Activate Healing</button>
+        </div>
+        <div style="margin-top: 10px;">
+            <button id="screenshotBtn">Take Screenshot</button>
+            <button id="clearBtn">Clear Screen</button>
+        </div>
+        <div style="margin-top: 10px;">
+            <label>
+                Node Density: <span id="densityLabel">Normal</span>
+                <input type="range" id="densitySlider" class="parenting-slider" min="1" max="5" value="3">
+            </label>
+        </div>
+        <div style="margin-top: 10px;">
+            <label>
+                Growth Speed: <span id="speedLabel">Medium</span>
+                <input type="range" id="speedSlider" class="parenting-slider" min="1" max="5" value="3">
+            </label>
+        </div>
+        <div style="margin-top: 10px;">
+            <label>
+                <input type="checkbox" id="gestureControlToggle" checked>
+                Enable Gesture Control
+            </label>
+        </div>
+    </div>
+    
+    <div class="legend">
+        <h3>Legend</h3>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #00ff88;"></div>
+            <div>Gesture Growth (Green)</div>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #ffe066;"></div>
+            <div>Healthy Growth</div>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #ff6b6b;"></div>
+            <div>Trauma Response</div>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #63e6be;"></div>
+            <div>Healing Process</div>
+        </div>
+    </div>
+    
+    <div id="gestureInfo">
+        <h4 style="margin-top: 0;">Detected Gestures</h4>
+        <div>Current: <span id="currentGesture">None</span></div>
+        <div>Confidence: <span id="gestureConfidence">0%</span></div>
+        <div>Emotional State: <span id="emotionState">Neutral</span></div>
+        <div style="margin-top: 8px; font-size: 10px; color: #aaa;">
+            Open=Growth, Peace=Healing, Fist=Trauma
+        </div>
+    </div>
+    
+    <div class="gesture-mode">
+        <h4 style="margin-top: 0;">Gesture Modes</h4>
+        <div>
+            <button id="nodeModeBtn" class="success">Node</button>
+            <button id="emotionModeBtn">Emotion</button>
+        </div>
+        <div>
+            <button id="cameraModeBtn">Camera</button>
+            <button id="contextModeBtn">Context</button>
+        </div>
+    </div>
+
+    <div class="gesture-test-panel">
+        <h4 style="margin-top: 0;">Gesture Test</h4>
+        <div>Try these gestures:</div>
+        <div style="margin: 5px 0;">✋ Open Hand - Wave slowly</div>
+        <div style="margin: 5px 0;">✌️ Peace Sign - Two fingers</div>
+        <div style="margin: 5px 0;">✊ Fist - Hold steady</div>
+        <button id="testGestureBtn">Test Mode</button>
+    </div>
+    
+    <div id="debugPanel">
+        <h4 style="margin-top: 0;">Debug Info</h4>
+        <div>Motion Level: <span id="motionLevel">0</span></div>
+        <div>Motion Points: <span id="motionPoints">0</span></div>
+        <div>Hand X: <span id="handX">0</span></div>
+        <div>Hand Y: <span id="handY">0</span></div>
+        <div>Hold Duration: <span id="holdDuration">0ms</span></div>
+        <div>Last Effect: <span id="lastEffect">None</span></div>
+    </div>
+    
+    <div class="camera-status">
+        <h4 style="margin-top: 0;">Camera Status</h4>
+        <div><span class="status-indicator status-red" id="cameraIndicator"></span>Camera: <span id="cameraStatus">Initializing</span></div>
+        <div><span class="status-indicator status-red" id="detectionIndicator"></span>Detection: <span id="detectionStatus">Inactive</span></div>
+        <div style="margin-top: 5px;">
+            <button id="recalibrateBtn">Recalibrate</button>
+        </div>
+    </div>
+    
+    <div class="info-panel">
+        <p><strong>Gestures:</strong> Open hand = Green growth nodes. Peace sign = Cyan healing. Fist = Red trauma.</p>
+        <p><strong>Mouse:</strong> Click or drag to create normal yellow nodes.</p>
+        <p><strong>Visual:</strong> Watch organic branching patterns with terminal bulbs and network connections.</p>
+        <p><strong>Growth:</strong> Mycelial networks spread naturally with anastomosis (connections between systems).</p>
+    </div>
+    
+    <div id="fpsCounter">FPS: 60</div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+        let width, height;
+        
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Log canvas dimensions for debugging
+            console.log(`Canvas resized to: ${width} x ${height}`);
+            
+            // Only check nodes if array is initialized and has content
+            try {
+                if (Array.isArray(nodeSystems) && nodeSystems.length > 0) {
+                    nodeSystems.forEach(system => {
+                        if (system && system.nodes && Array.isArray(system.nodes)) {
+                            system.nodes.forEach(node => {
+                                if (node && (node.x < 0 || node.x > width || node.y < 0 || node.y > height)) {
+                                    node.isDying = true;
+                                }
+                            });
+                        }
+                    });
+                }
+            } catch (error) {
+                console.warn('Error in resize bounds check:', error);
+            }
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // UI elements
+        const webcamCanvas = document.getElementById('webcamCanvas');
+        const webcamCtx = webcamCanvas.getContext('2d');
+        const parentingStyleSlider = document.getElementById('parentingStyleSlider');
+        const parentingStyleLabel = document.getElementById('parentingStyleLabel');
+        const traumaBtn = document.getElementById('traumaBtn');
+        const healingBtn = document.getElementById('healingBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const densitySlider = document.getElementById('densitySlider');
+        const densityLabel = document.getElementById('densityLabel');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedLabel = document.getElementById('speedLabel');
+        const gestureControlToggle = document.getElementById('gestureControlToggle');
+        const currentGestureElement = document.getElementById('currentGesture');
+        const gestureConfidenceElement = document.getElementById('gestureConfidence');
+        const emotionStateElement = document.getElementById('emotionState');
+        const gestureHighlight = document.getElementById('gestureHighlight');
+        const motionIndicator = document.getElementById('motionIndicator');
+        const testGestureBtn = document.getElementById('testGestureBtn');
+        const recalibrateBtn = document.getElementById('recalibrateBtn');
+        
+        // Debug elements
+        const motionLevelElement = document.getElementById('motionLevel');
+        const motionPointsElement = document.getElementById('motionPoints');
+        const handXElement = document.getElementById('handX');
+        const handYElement = document.getElementById('handY');
+        const holdDurationElement = document.getElementById('holdDuration');
+        const lastEffectElement = document.getElementById('lastEffect');
+        
+        // Camera status elements
+        const cameraIndicator = document.getElementById('cameraIndicator');
+        const detectionIndicator = document.getElementById('detectionIndicator');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const detectionStatus = document.getElementById('detectionStatus');
+        
+        // State variables
+        let parentingStyle = 0.5;
+        let nodeDensity = 3;
+        let growthSpeed = 3;
+        let traumaMode = false;
+        let healingMode = false;
+        let gestureEnabled = true;
+        let currentGesture = "none";
+        let gestureConfidence = 0;
+        let emotionalState = "neutral";
+        let handPosition = { x: 0, y: 0 };
+        let gestureHoldDuration = 0;
+        let lastGestureEffect = 0;
+        let isTestMode = false;
+        
+        // Motion detection variables
+        let video = document.createElement('video');
+        let isVideoRunning = false;
+        let processingCanvas = document.createElement('canvas');
+        let processingCtx = processingCanvas.getContext('2d');
+        let previousImageData = null;
+        let motionHistory = [];
+        
+        // Terminal bulbous structures (from v2 file)
+        class TerminalBulb {
+            constructor(x, y, parentX, parentY, nodeSystem) {
+                this.x = x;
+                this.y = y;
+                this.parentX = parentX;
+                this.parentY = parentY;
+                this.size = 2 + Math.random() * 4;
+                this.nodeSystem = nodeSystem;
+                this.creationTime = Date.now();
+                this.lifespan = 8000 + Math.random() * 4000;
+                this.opacity = 1;
+                this.isDying = false;
+                this.growthProgress = 0;
+                this.growthSpeed = 0.08 + Math.random() * 0.12;
+            }
+            
+            grow() {
+                if (this.isDying) {
+                    const currentTime = Date.now();
+                    const age = currentTime - this.creationTime;
+                    if (age > this.lifespan) {
+                        this.opacity = Math.max(0, 1 - (age - this.lifespan) / 2000);
+                        if (this.opacity <= 0) return false;
+                    }
+                }
+                
+                if (this.growthProgress < 1) {
+                    this.growthProgress += this.growthSpeed;
+                    if (this.growthProgress > 1) this.growthProgress = 1;
+                }
+                
+                if (this.nodeSystem.dying && !this.isDying) {
+                    this.isDying = true;
+                }
+                
+                return this.opacity > 0;
+            }
+            
+            draw() {
+                if (this.growthProgress <= 0) return;
+                
+                const currentSize = this.size * this.growthProgress;
+                const hue = this.nodeSystem.gestureType === 'gesture' ? 120 : 
+                           this.nodeSystem.gestureType === 'healing' ? 180 :
+                           this.nodeSystem.gestureType === 'trauma' ? 0 : 47;
+                const saturation = 90;
+                const lightness = 65;
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, currentSize, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${this.opacity})`;
+                ctx.fill();
+                
+                if (this.growthProgress < 0.5) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.parentX, this.parentY);
+                    ctx.lineTo(this.x, this.y);
+                    ctx.strokeStyle = `hsla(${hue}, ${saturation}%, ${lightness - 10}%, ${this.opacity * this.growthProgress})`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Enhanced Node class with organic growth patterns
+        class Node {
+            constructor(x, y, angle, length, generation, parentX, parentY, nodeSystem, thickness) {
+                this.x = x;
+                this.y = y;
+                this.startX = parentX || x;
+                this.startY = parentY || y;
+                this.angle = angle;
+                this.length = length;
+                this.generation = generation;
+                this.growthProgress = 0;
+                this.growthSpeed = (0.02 + Math.random() * 0.06) * (growthSpeed / 3);
+                this.branchProbability = Math.min(0.4, 0.15 + (nodeDensity * 0.05));
+                this.maxBranches = Math.min(4, 2 + Math.floor(nodeDensity / 2));
+                this.branches = [];
+                this.thickness = thickness || (2 + Math.random() * 2);
+                this.nodeSystem = nodeSystem;
+                this.creationTime = Date.now();
+                this.lifespan = 6000 + Math.random() * 4000;
+                this.opacity = 1;
+                this.isDying = false;
+                this.hasNodeBulb = Math.random() < 0.25;
+                this.bulbSize = this.thickness * (1.5 + Math.random() * 1.5);
+                this.hasTurns = Math.random() < 0.4;
+                this.turnPoints = [];
+                
+                // Create natural turns
+                if (this.hasTurns && this.length > 25) {
+                    const numTurns = Math.floor(Math.random() * 2) + 1;
+                    for (let i = 0; i < numTurns; i++) {
+                        this.turnPoints.push({
+                            position: 0.3 + Math.random() * 0.4,
+                            angle: (Math.random() * 0.6 - 0.3)
+                        });
+                    }
+                    this.turnPoints.sort((a, b) => a.position - b.position);
+                }
+            }
+
+            grow() {
+                if (this.isDying) {
+                    const currentTime = Date.now();
+                    const age = currentTime - this.creationTime;
+                    if (age > this.lifespan) {
+                        this.opacity = Math.max(0, 1 - (age - this.lifespan) / 2000);
+                        if (this.opacity <= 0) return false;
+                    }
+                }
+
+                if (this.growthProgress < 1) {
+                    this.growthProgress += this.growthSpeed;
+                    if (this.growthProgress >= 1) {
+                        this.growthProgress = 1;
+                        
+                        if (this.generation < 15 && this.thickness > 0.5) {
+                            const numBranches = Math.floor(Math.random() * this.maxBranches) + 1;
+                            
+                            const createTerminalStructures = this.generation > 8 && Math.random() < 0.3;
+                            
+                            if (createTerminalStructures) {
+                                const endX = this.calculateEndX();
+                                const endY = this.calculateEndY();
+                                const numBulbs = 2 + Math.floor(Math.random() * 4);
+                                const clusterRadius = 8 + Math.random() * 12;
+                                
+                                for (let i = 0; i < numBulbs; i++) {
+                                    const bulbAngle = Math.random() * Math.PI * 2;
+                                    const distance = Math.random() * clusterRadius;
+                                    const bulbX = endX + Math.cos(bulbAngle) * distance;
+                                    const bulbY = endY + Math.sin(bulbAngle) * distance;
+                                    
+                                    this.branches.push(new TerminalBulb(
+                                        bulbX, bulbY, endX, endY, this.nodeSystem
+                                    ));
+                                }
+                            } else {
+                                for (let i = 0; i < numBranches; i++) {
+                                    if (Math.random() < this.branchProbability) {
+                                        const angleChange = (Math.random() * 1.2) - 0.6;
+                                        const newAngle = this.angle + angleChange;
+                                        
+                                        let newLength = this.length * (0.6 + Math.random() * 0.4);
+                                        let newThickness = this.thickness * (0.7 + Math.random() * 0.2);
+                                        
+                                        const endX = this.calculateEndX();
+                                        const endY = this.calculateEndY();
+                                        
+                                        if (endX > 0 && endX < width && endY > 0 && endY < height) {
+                                            this.branches.push(new Node(
+                                                endX, endY, newAngle, newLength,
+                                                this.generation + 1, endX, endY, this.nodeSystem, newThickness
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                for (let i = this.branches.length - 1; i >= 0; i--) {
+                    const survived = this.branches[i].grow();
+                    if (!survived) {
+                        this.branches.splice(i, 1);
+                    }
+                }
+
+                if (this.nodeSystem.dying && !this.isDying) {
+                    this.isDying = true;
+                }
+
+                return this.opacity > 0 || this.branches.length > 0;
+            }
+            
+            calculateEndX() {
+                if (!this.hasTurns || this.turnPoints.length === 0) {
+                    return this.startX + Math.cos(this.angle) * this.length * this.growthProgress;
+                }
+                
+                let currentX = this.startX;
+                let currentY = this.startY;
+                let currentAngle = this.angle;
+                let lastPosition = 0;
+                
+                for (const turn of this.turnPoints) {
+                    if (this.growthProgress >= turn.position) {
+                        const segmentLength = this.length * (turn.position - lastPosition);
+                        currentX += Math.cos(currentAngle) * segmentLength;
+                        currentY += Math.sin(currentAngle) * segmentLength;
+                        currentAngle += turn.angle;
+                        lastPosition = turn.position;
+                    } else break;
+                }
+                
+                const remainingLength = this.length * (this.growthProgress - lastPosition);
+                return currentX + Math.cos(currentAngle) * remainingLength;
+            }
+            
+            calculateEndY() {
+                if (!this.hasTurns || this.turnPoints.length === 0) {
+                    return this.startY + Math.sin(this.angle) * this.length * this.growthProgress;
+                }
+                
+                let currentX = this.startX;
+                let currentY = this.startY;
+                let currentAngle = this.angle;
+                let lastPosition = 0;
+                
+                for (const turn of this.turnPoints) {
+                    if (this.growthProgress >= turn.position) {
+                        const segmentLength = this.length * (turn.position - lastPosition);
+                        currentX += Math.cos(currentAngle) * segmentLength;
+                        currentY += Math.sin(currentAngle) * segmentLength;
+                        currentAngle += turn.angle;
+                        lastPosition = turn.position;
+                    } else break;
+                }
+                
+                const remainingLength = this.length * (this.growthProgress - lastPosition);
+                return currentY + Math.sin(currentAngle) * remainingLength;
+            }
+
+            draw() {
+                const endX = this.calculateEndX();
+                const endY = this.calculateEndY();
+
+                // Determine color based on node system type
+                let hue, saturation, lightness;
+                if (this.nodeSystem.gestureType === 'gesture') {
+                    hue = 120; saturation = 90; lightness = 60; // Bright green
+                } else if (this.nodeSystem.gestureType === 'healing') {
+                    hue = 180; saturation = 80; lightness = 65; // Cyan
+                } else if (this.nodeSystem.gestureType === 'trauma') {
+                    hue = 0; saturation = 90; lightness = 60; // Red
+                } else {
+                    // Normal yellow/golden nodes
+                    const ageRatio = Math.min(1, (Date.now() - this.nodeSystem.creationTime) / 8000);
+                    hue = 60 - (ageRatio * 15);
+                    saturation = Math.max(60, 90 - this.generation * 2);
+                    lightness = Math.min(70, 45 + this.generation * 2);
+                }
+
+                if (this.hasTurns && this.turnPoints.length > 0) {
+                    let currentX = this.startX;
+                    let currentY = this.startY;
+                    let currentAngle = this.angle;
+                    let lastPosition = 0;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(currentX, currentY);
+                    
+                    for (const turn of this.turnPoints) {
+                        if (this.growthProgress >= turn.position) {
+                            const segmentLength = this.length * (turn.position - lastPosition);
+                            const nextX = currentX + Math.cos(currentAngle) * segmentLength;
+                            const nextY = currentY + Math.sin(currentAngle) * segmentLength;
+                            
+                            ctx.lineTo(nextX, nextY);
+                            
+                            currentX = nextX;
+                            currentY = nextY;
+                            currentAngle += turn.angle;
+                            lastPosition = turn.position;
+                        } else break;
+                    }
+                    
+                    if (this.growthProgress > lastPosition) {
+                        const remainingLength = this.length * (this.growthProgress - lastPosition);
+                        const finalX = currentX + Math.cos(currentAngle) * remainingLength;
+                        const finalY = currentY + Math.sin(currentAngle) * remainingLength;
+                        ctx.lineTo(finalX, finalY);
+                    }
+                    
+                    ctx.strokeStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${this.opacity})`;
+                    ctx.lineWidth = this.thickness;
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(this.startX, this.startY);
+                    ctx.lineTo(endX, endY);
+                    ctx.strokeStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${this.opacity})`;
+                    ctx.lineWidth = this.thickness;
+                    ctx.stroke();
+                }
+
+                if (this.hasNodeBulb && this.growthProgress === 1) {
+                    ctx.beginPath();
+                    ctx.arc(endX, endY, this.bulbSize, 0, Math.PI * 2);
+                    ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness + 10}%, ${this.opacity * 0.8})`;
+                    ctx.fill();
+                }
+
+                for (const branch of this.branches) {
+                    branch.draw();
+                }
+            }
+        }
+
+        // Node system to manage collections of nodes
+        class NodeSystem {
+            constructor(x, y, gestureType = 'normal') {
+                this.nodes = [];
+                this.creationTime = Date.now();
+                this.dying = false;
+                this.gestureType = gestureType;
+                
+                // Shorter lifespans for faster response
+                const baseLifespan = gestureType === 'gesture' ? 5000 : 
+                                   gestureType === 'healing' ? 6000 :
+                                   gestureType === 'trauma' ? 4000 : 6000;
+                this.lifespan = baseLifespan + Math.random() * 2000;
+                
+                // Fewer initial branches for cleaner appearance
+                const numInitialBranches = 4 + Math.floor(Math.random() * 4); // 4-7 branches
+                
+                const directionality = Math.random();
+                
+                if (directionality < 0.4) {
+                    // Radial pattern
+                    for (let i = 0; i < numInitialBranches; i++) {
+                        const angle = (Math.PI * 2 / numInitialBranches) * i + (Math.random() * 0.4 - 0.2);
+                        const length = 20 + Math.random() * 35;
+                        const thickness = 1.5 + Math.random() * 1.8;
+                        this.nodes.push(new Node(x, y, angle, length, 0, x, y, this, thickness));
+                    }
+                } else {
+                    // Directional pattern
+                    const mainDirection = Math.random() * Math.PI * 2;
+                    const spread = Math.PI * 0.7;
+                    
+                    for (let i = 0; i < numInitialBranches; i++) {
+                        const angleOffset = (Math.random() * spread) - (spread / 2);
+                        const angle = mainDirection + angleOffset;
+                        const length = 25 + Math.random() * 40;
+                        const thickness = 1.5 + Math.random() * 1.8;
+                        
+                        const offsetDistance = Math.random() * 6;
+                        const startX = x + Math.cos(angle) * offsetDistance;
+                        const startY = y + Math.sin(angle) * offsetDistance;
+                        
+                        this.nodes.push(new Node(startX, startY, angle, length, 0, startX, startY, this, thickness));
+                    }
+                }
+            }
+
+            update() {
+                // Shorter lifespan check
+                const age = Date.now() - this.creationTime;
+                if (age > this.lifespan && !this.dying) {
+                    this.dying = true;
+                }
+
+                for (let i = this.nodes.length - 1; i >= 0; i--) {
+                    const survived = this.nodes[i].grow();
+                    if (!survived) {
+                        this.nodes.splice(i, 1);
+                    }
+                }
+                
+                // Reduced anastomosis for cleaner growth
+                if (!this.dying && this.nodes.length > 0 && this.nodes.length < 15 && Math.random() < 0.04) {
+                    const sourceNodeIndex = Math.floor(Math.random() * this.nodes.length);
+                    const sourceNode = this.nodes[sourceNodeIndex];
+                    
+                    if (sourceNode.growthProgress >= 0.8) {
+                        const endX = sourceNode.calculateEndX();
+                        const endY = sourceNode.calculateEndY();
+                        
+                        // Check bounds before creating new branch
+                        if (endX > 50 && endX < width - 50 && endY > 50 && endY < height - 50) {
+                            const newAngle = Math.random() * Math.PI * 2;
+                            const newLength = 15 + Math.random() * 25;
+                            const newThickness = sourceNode.thickness * 0.7;
+                            
+                            this.nodes.push(new Node(
+                                endX, endY, newAngle, newLength,
+                                sourceNode.generation, endX, endY, this, newThickness
+                            ));
+                        }
+                    }
+                }
+
+                return this.nodes.length > 0;
+            }
+
+            draw() {
+                for (const node of this.nodes) {
+                    node.draw();
+                }
+            }
+        }
+
+        // Main systems - initialize early
+        let nodeSystems = [];
+        let nodeInteractions = [];
+        let lastUpdateTime = 0;
+        
+        // Network connections between systems
+        function checkForInteractions() {
+            try {
+                if (!Array.isArray(nodeSystems) || nodeSystems.length === 0) return;
+                
+                nodeInteractions.length = 0;
+                
+                for (let i = 0; i < nodeSystems.length; i++) {
+                    const systemA = nodeSystems[i];
+                    if (!systemA || !Array.isArray(systemA.nodes)) continue;
+                    
+                    for (let j = i + 1; j < nodeSystems.length; j++) {
+                        const systemB = nodeSystems[j];
+                        if (!systemB || !Array.isArray(systemB.nodes)) continue;
+                        
+                        for (const nodeA of systemA.nodes) {
+                            if (!nodeA || nodeA.growthProgress < 0.8) continue;
+                            const endXA = nodeA.calculateEndX();
+                            const endYA = nodeA.calculateEndY();
+                            
+                            for (const nodeB of systemB.nodes) {
+                                if (!nodeB || nodeB.growthProgress < 0.8) continue;
+                                const endXB = nodeB.calculateEndX();
+                                const endYB = nodeB.calculateEndY();
+                                
+                                const dx = endXB - endXA;
+                                const dy = endYB - endYA;
+                                const distance = Math.sqrt(dx*dx + dy*dy);
+                                
+                                if (distance < 60 && Math.random() < 0.05) {
+                                    nodeInteractions.push({
+                                        x1: endXA, y1: endYA,
+                                        x2: endXB, y2: endYB,
+                                        opacity: 1,
+                                        thickness: (nodeA.thickness + nodeB.thickness) * 0.4,
+                                        creationTime: Date.now()
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('Error in interaction check:', error);
+            }
+        }
+        
+        // Auto-growth for more dynamic expansion - DISABLED BY DEFAULT
+        function addAutoGrowthPoints() {
+            try {
+                // Only auto-grow if there are very few systems and user explicitly wants it
+                if (Array.isArray(nodeSystems) && nodeSystems.length < 2 && Math.random() < 0.005) {
+                    const x = 100 + Math.random() * (width - 200);
+                    const y = 100 + Math.random() * (height - 200);
+                    nodeSystems.push(new NodeSystem(x, y, 'normal'));
+                    console.log(`Auto-created node at (${x.toFixed(1)}, ${y.toFixed(1)})`);
+                }
+            } catch (error) {
+                console.warn('Error in auto-growth:', error);
+            }
+        }
+
+        // Camera and gesture detection
+        async function startVideo() {
+            try {
+                updateCameraStatus('Requesting permissions...', 'yellow');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: 320, 
+                        height: 240,
+                        facingMode: 'user'
+                    } 
+                });
+                
+                video.srcObject = stream;
+                video.autoplay = true;
+                video.muted = true;
+                video.playsInline = true;
+                
+                // Wait for video to be ready and start playing
+                video.onloadedmetadata = () => {
+                    console.log('Video metadata loaded');
+                    processingCanvas.width = video.videoWidth;
+                    processingCanvas.height = video.videoHeight;
+                    webcamCanvas.width = video.videoWidth;
+                    webcamCanvas.height = video.videoHeight;
+                };
+                
+                video.oncanplay = () => {
+                    console.log('Video can play');
+                    video.play().then(() => {
+                        console.log('Video playing successfully');
+                        isVideoRunning = true;
+                        updateCameraStatus('Camera active', 'green');
+                        updateDetectionStatus('Starting detection...', 'yellow');
+                        webcamCanvas.style.border = '2px solid #4CAF50';
+                        
+                        // Start the detection and display loop
+                        detectGestures();
+                        updateWebcamDisplay();
+                    }).catch(error => {
+                        console.error('Error playing video:', error);
+                        updateCameraStatus('Play failed', 'red');
+                    });
+                };
+                
+                video.onerror = (error) => {
+                    console.error('Video error:', error);
+                    updateCameraStatus('Camera error', 'red');
+                    updateDetectionStatus('Detection failed', 'red');
+                };
+                
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                updateCameraStatus('Camera failed', 'red');
+                updateDetectionStatus('Detection failed', 'red');
+                gestureEnabled = false;
+                gestureControlToggle.checked = false;
+                
+                // Show placeholder
+                webcamCtx.fillStyle = '#333';
+                webcamCtx.fillRect(0, 0, webcamCanvas.width || 160, webcamCanvas.height || 120);
+                webcamCtx.fillStyle = '#fff';
+                webcamCtx.font = '12px Arial';
+                webcamCtx.textAlign = 'center';
+                webcamCtx.fillText('Camera Off', (webcamCanvas.width || 160)/2, (webcamCanvas.height || 120)/2);
+            }
+        }
+        
+        // Separate function for webcam display
+        function updateWebcamDisplay() {
+            if (!isVideoRunning || !video.videoWidth) {
+                requestAnimationFrame(updateWebcamDisplay);
+                return;
+            }
+            
+            try {
+                // Draw current video frame to webcam canvas
+                webcamCtx.drawImage(video, 0, 0, webcamCanvas.width, webcamCanvas.height);
+            } catch (error) {
+                console.error('Error updating webcam display:', error);
+            }
+            
+            // Continue the display loop
+            requestAnimationFrame(updateWebcamDisplay);
+        }
+        
+        function stopVideo() {
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            isVideoRunning = false;
+            updateCameraStatus('Camera off', 'red');
+            updateDetectionStatus('Detection off', 'red');
+            webcamCanvas.style.border = '2px solid #555';
+            
+            webcamCtx.fillStyle = '#333';
+            webcamCtx.fillRect(0, 0, webcamCanvas.width, webcamCanvas.height);
+            webcamCtx.fillStyle = '#fff';
+            webcamCtx.font = '12px Arial';
+            webcamCtx.textAlign = 'center';
+            webcamCtx.fillText('Camera Off', webcamCanvas.width/2, webcamCanvas.height/2);
+        }
+        
+        function updateCameraStatus(status, color) {
+            cameraStatus.textContent = status;
+            cameraIndicator.className = `status-indicator status-${color}`;
+        }
+        
+        function updateDetectionStatus(status, color) {
+            detectionStatus.textContent = status;
+            detectionIndicator.className = `status-indicator status-${color}`;
+        }
+        
+        function detectGestures() {
+            if (!isVideoRunning || !gestureEnabled || !video.videoWidth) {
+                setTimeout(detectGestures, 100);
+                return;
+            }
+            
+            try {
+                // Process for motion detection only
+                processingCtx.drawImage(video, 0, 0, processingCanvas.width, processingCanvas.height);
+                const currentImageData = processingCtx.getImageData(0, 0, processingCanvas.width, processingCanvas.height);
+                
+                let motionLevel = 0;
+                let motionPoints = 0;
+                
+                if (previousImageData) {
+                    const result = calculateMotion(currentImageData, previousImageData);
+                    motionLevel = result.level;
+                    motionPoints = result.points;
+                    
+                    // Update debug info
+                    motionLevelElement.textContent = motionLevel.toFixed(1);
+                    motionPointsElement.textContent = motionPoints;
+                    
+                    // Visual motion indicator
+                    if (motionLevel > 2) {
+                        motionIndicator.style.opacity = Math.min(motionLevel / 10, 1);
+                    } else {
+                        motionIndicator.style.opacity = 0;
+                    }
+                    
+                    // Analyze gesture
+                    const detectedGesture = analyzeGesture(motionLevel, motionPoints, result.motionCenter);
+                    
+                    if (detectedGesture.gesture !== "none" && detectedGesture.confidence > 60) {
+                        updateDetectionStatus(`${detectedGesture.gesture} detected!`, 'green');
+                        processGesture(detectedGesture);
+                    } else if (motionLevel > 1) {
+                        updateDetectionStatus('Motion detected', 'yellow');
+                    } else {
+                        updateDetectionStatus('Waiting for motion', 'yellow');
+                    }
+                } else {
+                    updateDetectionStatus('Calibrating...', 'yellow');
+                }
+                
+                // Store current frame for next comparison
+                previousImageData = currentImageData;
+                
+                // Continue detection loop at slower rate for better performance
+                setTimeout(detectGestures, 150);
+                
+            } catch (error) {
+                console.error('Gesture detection error:', error);
+                updateDetectionStatus('Detection error', 'red');
+                setTimeout(detectGestures, 500);
+            }
+        }
+        
+        function calculateMotion(current, previous) {
+            const currentData = current.data;
+            const previousData = previous.data;
+            let totalMotion = 0;
+            let motionPoints = 0;
+            let motionCenterX = 0;
+            let motionCenterY = 0;
+            let totalMotionWeight = 0;
+            
+            const width = processingCanvas.width;
+            const height = processingCanvas.height;
+            
+            for (let i = 0; i < currentData.length; i += 4) {
+                const pixelIndex = i / 4;
+                const x = pixelIndex % width;
+                const y = Math.floor(pixelIndex / width);
+                
+                const rDiff = Math.abs(currentData[i] - previousData[i]);
+                const gDiff = Math.abs(currentData[i + 1] - previousData[i + 1]);
+                const bDiff = Math.abs(currentData[i + 2] - previousData[i + 2]);
+                
+                const pixelMotion = (rDiff + gDiff + bDiff) / 3;
+                
+                if (pixelMotion > 25) {
+                    totalMotion += pixelMotion;
+                    motionPoints++;
+                    
+                    // Weight by motion intensity for better center calculation
+                    const weight = pixelMotion;
+                    motionCenterX += x * weight;
+                    motionCenterY += y * weight;
+                    totalMotionWeight += weight;
+                }
+            }
+            
+            // Calculate weighted center
+            if (totalMotionWeight > 0) {
+                motionCenterX /= totalMotionWeight;
+                motionCenterY /= totalMotionWeight;
+            } else {
+                // Default to center if no motion
+                motionCenterX = width / 2;
+                motionCenterY = height / 2;
+            }
+            
+            console.log(`Motion center: (${motionCenterX.toFixed(1)}, ${motionCenterY.toFixed(1)}) in ${width}x${height} camera`);
+            
+            return {
+                level: totalMotion / 1000,
+                points: motionPoints,
+                motionCenter: { x: motionCenterX, y: motionCenterY }
+            };
+        }
+        
+        function analyzeGesture(motionLevel, motionPoints, motionCenter) {
+            // Enhanced gesture detection with better differentiation
+            if (motionLevel < 2 || motionPoints < 150) {
+                return { gesture: "none", confidence: 0 };
+            }
+            
+            let gesture = "none";
+            let confidence = 0;
+            
+            console.log(`Motion: Level=${motionLevel.toFixed(1)}, Points=${motionPoints}`); // Debug log
+            
+            // Peace sign (V) - Two finger spread, medium area
+            if (motionPoints >= 300 && motionPoints <= 1000 && motionLevel >= 3 && motionLevel <= 9) {
+                gesture = "peace";
+                confidence = Math.min(95, 50 + motionLevel * 6);
+                console.log(`Peace detected: confidence=${confidence}`);
+            }
+            // Open hand (wave) - Large area with medium-high motion
+            else if (motionPoints >= 1200 && motionPoints <= 3500 && motionLevel >= 4 && motionLevel <= 15) {
+                gesture = "open";
+                confidence = Math.min(95, 40 + motionLevel * 5);
+                console.log(`Open hand detected: confidence=${confidence}`);
+            }
+            // Fist - Small concentrated area with high motion
+            else if (motionPoints <= 800 && motionLevel >= 8) {
+                gesture = "fist";
+                confidence = Math.min(95, 30 + motionLevel * 4);
+                console.log(`Fist detected: confidence=${confidence}`);
+            }
+            
+            return { gesture, confidence, center: motionCenter };
+        }
+        
+        function processGesture(detectedGesture) {
+            const now = Date.now();
+            if (now - lastGestureEffect < 800) return; // Cooldown
+            
+            currentGesture = detectedGesture.gesture;
+            gestureConfidence = detectedGesture.confidence;
+            
+            currentGestureElement.textContent = currentGesture;
+            gestureConfidenceElement.textContent = `${Math.round(gestureConfidence)}%`;
+            
+            console.log(`Processing gesture: ${currentGesture} with confidence ${gestureConfidence}%`);
+            console.log(`Canvas dimensions: ${width} x ${height}`);
+            
+            // RANDOM SCREEN DISTRIBUTION - not based on hand position
+            // Generate random positions across the entire screen with margins
+            const margin = 80; // Keep nodes away from edges
+            
+            // Create effects based on gesture with RANDOM screen distribution
+            if (currentGesture === "open") {
+                // Green growth nodes - scattered randomly across screen
+                emotionalState = "growing";
+                emotionStateElement.textContent = "Growing";
+                emotionStateElement.style.color = "#00ff88";
+                gestureHighlight.style.backgroundColor = 'rgba(0, 255, 136, 0.2)';
+                gestureHighlight.style.opacity = '1';
+                
+                // Create 3 green nodes at completely random positions
+                for (let i = 0; i < 3; i++) {
+                    const randomX = margin + Math.random() * (width - 2 * margin);
+                    const randomY = margin + Math.random() * (height - 2 * margin);
+                    
+                    nodeSystems.push(new NodeSystem(randomX, randomY, 'gesture'));
+                    console.log(`✅ Created GREEN node at random position (${randomX.toFixed(1)}, ${randomY.toFixed(1)})`);
+                }
+                lastEffectElement.textContent = "Growth Created";
+                
+            } else if (currentGesture === "peace") {
+                // Cyan healing nodes - scattered randomly across screen
+                emotionalState = "healing";
+                emotionStateElement.textContent = "Healing";
+                emotionStateElement.style.color = "#63e6be";
+                gestureHighlight.style.backgroundColor = 'rgba(99, 230, 190, 0.2)';
+                gestureHighlight.style.opacity = '1';
+                
+                // Create 2 cyan nodes at completely random positions
+                for (let i = 0; i < 2; i++) {
+                    const randomX = margin + Math.random() * (width - 2 * margin);
+                    const randomY = margin + Math.random() * (height - 2 * margin);
+                    
+                    nodeSystems.push(new NodeSystem(randomX, randomY, 'healing'));
+                    console.log(`✅ Created CYAN node at random position (${randomX.toFixed(1)}, ${randomY.toFixed(1)})`);
+                }
+                lastEffectElement.textContent = "Healing Created";
+                
+            } else if (currentGesture === "fist") {
+                // Red trauma nodes - scattered randomly across screen
+                emotionalState = "trauma";
+                emotionStateElement.textContent = "Trauma";
+                emotionStateElement.style.color = "#ff6b6b";
+                gestureHighlight.style.backgroundColor = 'rgba(255, 107, 107, 0.2)';
+                gestureHighlight.style.opacity = '1';
+                
+                // Create 2 red nodes at completely random positions  
+                for (let i = 0; i < 2; i++) {
+                    const randomX = margin + Math.random() * (width - 2 * margin);
+                    const randomY = margin + Math.random() * (height - 2 * margin);
+                    
+                    nodeSystems.push(new NodeSystem(randomX, randomY, 'trauma'));
+                    console.log(`✅ Created RED node at random position (${randomX.toFixed(1)}, ${randomY.toFixed(1)})`);
+                }
+                lastEffectElement.textContent = "Trauma Created";
+            }
+            
+            // Update debug info with random distribution notice
+            handXElement.textContent = "Random";
+            handYElement.textContent = "Distribution";
+            
+            // Clear highlight after delay
+            setTimeout(() => {
+                gestureHighlight.style.opacity = '0';
+                emotionalState = "neutral";
+                emotionStateElement.textContent = "Neutral";
+                emotionStateElement.style.color = "#63e6be";
+            }, 500);
+            
+            lastGestureEffect = now;
+            console.log(`Gesture processing complete. Total systems: ${nodeSystems.length}`);
+        }
+        
+        // Animation loop
+        function animate(timestamp) {
+            if (timestamp - lastUpdateTime > 20) {
+                checkForInteractions();
+                addAutoGrowthPoints();
+                lastUpdateTime = timestamp;
+            }
+            
+            // Clear with slight fade for organic trail effect
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.05)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Update and draw all node systems
+            if (nodeSystems && nodeSystems.length > 0) {
+                for (let i = nodeSystems.length - 1; i >= 0; i--) {
+                    const system = nodeSystems[i];
+                    if (system) {
+                        const alive = system.update();
+                        if (alive) {
+                            system.draw();
+                        } else {
+                            nodeSystems.splice(i, 1);
+                        }
+                    }
+                }
+            }
+            
+            // Draw network connections
+            if (nodeInteractions && nodeInteractions.length > 0) {
+                for (let i = nodeInteractions.length - 1; i >= 0; i--) {
+                    const interaction = nodeInteractions[i];
+                    if (!interaction) continue;
+                    
+                    const age = Date.now() - interaction.creationTime;
+                    if (age > 3000) {
+                        interaction.opacity = Math.max(0, 1 - (age - 3000) / 1500);
+                        if (interaction.opacity <= 0) {
+                            nodeInteractions.splice(i, 1);
+                            continue;
+                        }
+                    }
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(interaction.x1, interaction.y1);
+                    ctx.lineTo(interaction.x2, interaction.y2);
+                    ctx.strokeStyle = `hsla(50, 80%, 60%, ${interaction.opacity * 0.7})`;
+                    ctx.lineWidth = interaction.thickness;
+                    ctx.stroke();
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Event handlers - Fixed mouse interaction
+        canvas.addEventListener('click', (e) => {
+            // Only handle clicks directly on the canvas, not on UI elements
+            if (e.target !== canvas) return;
+            
+            try {
+                if (Array.isArray(nodeSystems)) {
+                    nodeSystems.push(new NodeSystem(e.clientX, e.clientY));
+                    console.log(`Created node system at (${e.clientX}, ${e.clientY})`);
+                }
+            } catch (error) {
+                console.error('Error creating node system:', error);
+            }
+        });
+        
+        let isDragging = false;
+        let dragStarted = false;
+        let lastDragTime = 0;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        
+        canvas.addEventListener('mousedown', (e) => {
+            // Only handle mousedown on canvas, not UI elements
+            if (e.target !== canvas) return;
+            
+            // Prevent default to avoid interfering with other interactions
+            // but only for canvas interactions
+            isDragging = true;
+            dragStarted = false;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            lastDragTime = Date.now();
+            
+            // Create initial node on mousedown
+            try {
+                if (Array.isArray(nodeSystems)) {
+                    nodeSystems.push(new NodeSystem(e.clientX, e.clientY));
+                    console.log(`Created initial drag node at (${e.clientX}, ${e.clientY})`);
+                }
+            } catch (error) {
+                console.error('Error creating initial node:', error);
+            }
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            // Only start creating drag nodes after moving a minimum distance
+            const dx = e.clientX - dragStartX;
+            const dy = e.clientY - dragStartY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (!dragStarted && distance > 10) {
+                dragStarted = true;
+                console.log('Drag motion started');
+            }
+            
+            if (!dragStarted) return;
+            
+            try {
+                const currentTime = Date.now();
+                if (currentTime - lastDragTime > 120 && Array.isArray(nodeSystems)) {
+                    nodeSystems.push(new NodeSystem(e.clientX, e.clientY));
+                    lastDragTime = currentTime;
+                }
+            } catch (error) {
+                console.error('Error in drag creation:', error);
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            dragStarted = false;
+            if (dragStarted) {
+                console.log('Drag sequence completed');
+            }
+        });
+        
+        // Prevent context menu on canvas to avoid interference
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+        
+        // Button interactions - CORRECTED SELECTORS
+        
+        // Wait for DOM to be ready before attaching listeners
+        setTimeout(() => {
+            // Simulate Trauma Event button (red button)
+            const traumaBtn = document.querySelector('button[style*="background: #ff6b6b"]') || 
+                             document.querySelector('.control-btn:first-child') ||
+                             Array.from(document.querySelectorAll('button')).find(btn => btn.textContent.includes('Trauma'));
+            
+            if (traumaBtn) {
+                traumaBtn.addEventListener('click', () => {
+                    console.log('Trauma event triggered manually');
+                    
+                    // Create multiple red trauma nodes at random positions
+                    for (let i = 0; i < 4; i++) {
+                        const randomX = 80 + Math.random() * (width - 160);
+                        const randomY = 80 + Math.random() * (height - 160);
+                        nodeSystems.push(new NodeSystem(randomX, randomY, 'trauma'));
+                    }
+                    
+                    // Update emotional state
+                    emotionalState = "trauma";
+                    if (emotionStateElement) emotionStateElement.textContent = "Trauma";
+                    if (emotionStateElement) emotionStateElement.style.color = "#ff6b6b";
+                    if (lastEffectElement) lastEffectElement.textContent = "Manual Trauma Created";
+                    
+                    // Visual feedback
+                    traumaBtn.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        traumaBtn.style.transform = 'scale(1)';
+                    }, 150);
+                    
+                    console.log(`Manual trauma created. Total systems: ${nodeSystems.length}`);
+                });
+            }
+            
+            // Activate Healing button (green button)
+            const healingBtn = document.querySelector('button[style*="background: #63e6be"]') || 
+                              document.querySelector('.control-btn:nth-child(2)') ||
+                              Array.from(document.querySelectorAll('button')).find(btn => btn.textContent.includes('Healing'));
+            
+            if (healingBtn) {
+                healingBtn.addEventListener('click', () => {
+                    console.log('Healing activated manually');
+                    
+                    // Create multiple green and cyan healing nodes
+                    for (let i = 0; i < 3; i++) {
+                        const randomX = 80 + Math.random() * (width - 160);
+                        const randomY = 80 + Math.random() * (height - 160);
+                        const nodeType = Math.random() > 0.5 ? 'gesture' : 'healing';
+                        nodeSystems.push(new NodeSystem(randomX, randomY, nodeType));
+                    }
+                    
+                    // Update emotional state
+                    emotionalState = "healing";
+                    if (emotionStateElement) emotionStateElement.textContent = "Healing";
+                    if (emotionStateElement) emotionStateElement.style.color = "#63e6be";
+                    if (lastEffectElement) lastEffectElement.textContent = "Manual Healing Created";
+                    
+                    // Visual feedback
+                    healingBtn.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        healingBtn.style.transform = 'scale(1)';
+                    }, 150);
+                    
+                    console.log(`Manual healing created. Total systems: ${nodeSystems.length}`);
+                });
+            }
+            
+            // Take Screenshot button
+            const screenshotBtn = Array.from(document.querySelectorAll('button')).find(btn => 
+                btn.textContent.includes('Screenshot') || btn.textContent.includes('Take'));
+            
+            if (screenshotBtn) {
+                screenshotBtn.addEventListener('click', () => {
+                    console.log('Taking screenshot');
+                    
+                    try {
+                        // Create a temporary canvas for the screenshot
+                        const screenshotCanvas = document.createElement('canvas');
+                        screenshotCanvas.width = canvas.width;
+                        screenshotCanvas.height = canvas.height;
+                        const screenshotCtx = screenshotCanvas.getContext('2d');
+                        
+                        // Fill with dark background
+                        screenshotCtx.fillStyle = '#0a0a0a';
+                        screenshotCtx.fillRect(0, 0, screenshotCanvas.width, screenshotCanvas.height);
+                        
+                        // Copy current canvas content
+                        screenshotCtx.drawImage(canvas, 0, 0);
+                        
+                        // Convert to image and download
+                        const link = document.createElement('a');
+                        link.download = `mycelial-network-${Date.now()}.png`;
+                        link.href = screenshotCanvas.toDataURL();
+                        link.click();
+                        
+                        // Visual feedback
+                        const originalBg = screenshotBtn.style.background;
+                        const originalText = screenshotBtn.textContent;
+                        screenshotBtn.style.background = '#4CAF50';
+                        screenshotBtn.textContent = 'Captured!';
+                        setTimeout(() => {
+                            screenshotBtn.style.background = originalBg;
+                            screenshotBtn.textContent = originalText;
+                        }, 1000);
+                        
+                        console.log('Screenshot saved successfully');
+                    } catch (error) {
+                        console.error('Screenshot failed:', error);
+                    }
+                });
+            }
+            
+            // Clear Screen button
+            const clearBtn = Array.from(document.querySelectorAll('button')).find(btn => 
+                btn.textContent.includes('Clear') || btn.textContent.includes('clear'));
+            
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    console.log('Clearing screen');
+                    
+                    // Clear all node systems
+                    nodeSystems.length = 0;
+                    nodeInteractions.length = 0;
+                    
+                    // Reset emotional state
+                    emotionalState = "neutral";
+                    if (emotionStateElement) emotionStateElement.textContent = "Neutral";
+                    if (emotionStateElement) emotionStateElement.style.color = "#63e6be";
+                    if (lastEffectElement) lastEffectElement.textContent = "Screen Cleared";
+                    
+                    // Clear canvas
+                    ctx.fillStyle = 'rgba(10, 10, 10, 1)';
+                    ctx.fillRect(0, 0, width, height);
+                    
+                    // Visual feedback
+                    const originalBg = clearBtn.style.background;
+                    const originalText = clearBtn.textContent;
+                    clearBtn.style.background = '#f44336';
+                    clearBtn.textContent = 'Cleared!';
+                    setTimeout(() => {
+                        clearBtn.style.background = originalBg;
+                        clearBtn.textContent = originalText;
+                    }, 1000);
+                    
+                    console.log('Screen cleared, all systems reset');
+                });
+            }
+            
+            // Gesture Mode buttons - Find by text content and position
+            const gestureBtns = Array.from(document.querySelectorAll('button')).filter(btn => 
+                ['Node', 'Emotion', 'Camera', 'Context'].some(text => btn.textContent.includes(text))
+            );
+            
+            let currentGestureMode = 'node'; // Default mode
+            
+            gestureBtns.forEach((btn, index) => {
+                btn.addEventListener('click', () => {
+                    const btnText = btn.textContent.toLowerCase();
+                    
+                    if (btnText.includes('node')) {
+                        currentGestureMode = 'node';
+                        console.log('Gesture mode: Node creation');
+                        if (lastEffectElement) lastEffectElement.textContent = "Mode: Node Creation";
+                    } else if (btnText.includes('emotion')) {
+                        currentGestureMode = 'emotion';
+                        console.log('Gesture mode: Emotion display');
+                        if (gestureHighlight) gestureHighlight.style.opacity = '0.8';
+                        if (lastEffectElement) lastEffectElement.textContent = "Mode: Emotion Display";
+                    } else if (btnText.includes('camera')) {
+                        currentGestureMode = 'camera';
+                        console.log('Gesture mode: Camera focus');
+                        const videoElement = document.querySelector('video');
+                        if (videoElement) {
+                            videoElement.style.border = '2px solid #63e6be';
+                            setTimeout(() => {
+                                videoElement.style.border = '1px solid #333';
+                            }, 1000);
+                        }
+                        if (lastEffectElement) lastEffectElement.textContent = "Mode: Camera Focus";
+                    } else if (btnText.includes('context')) {
+                        currentGestureMode = 'context';
+                        console.log('Gesture mode: Context analysis');
+                        console.log(`Current context: ${nodeSystems.length} active systems, emotion: ${emotionalState}`);
+                        if (lastEffectElement) lastEffectElement.textContent = "Mode: Context Analysis";
+                    }
+                    
+                    // Update button states
+                    updateGestureModeButtons();
+                });
+            });
+            
+            // Helper function to update gesture mode button states
+            function updateGestureModeButtons() {
+                gestureBtns.forEach(btn => {
+                    const btnText = btn.textContent.toLowerCase();
+                    const isActive = btnText.includes(currentGestureMode);
+                    
+                    if (isActive) {
+                        btn.style.background = '#63e6be';
+                        btn.style.color = '#000';
+                    } else {
+                        btn.style.background = '#555';
+                        btn.style.color = '#fff';
+                    }
+                });
+            }
+            
+            // Initialize button states
+            updateGestureModeButtons();
+            
+            console.log('All button listeners attached successfully');
+            console.log('Found buttons:', {
+                trauma: !!traumaBtn,
+                healing: !!healingBtn, 
+                screenshot: !!screenshotBtn,
+                clear: !!clearBtn,
+                gestureModes: gestureBtns.length
+            });
+            
+        }, 1000); // Wait 1 second for DOM to be fully ready
+        
+        // UI controls
+        gestureControlToggle.addEventListener('change', (e) => {
+            gestureEnabled = e.target.checked;
+            if (gestureEnabled && !isVideoRunning) {
+                startVideo();
+            } else if (!gestureEnabled && isVideoRunning) {
+                stopVideo();
+            }
+        });
+        
+        clearBtn.addEventListener('click', () => {
+            try {
+                if (Array.isArray(nodeSystems)) nodeSystems.length = 0;
+                if (Array.isArray(nodeInteractions)) nodeInteractions.length = 0;
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, width, height);
+                console.log('Screen cleared');
+            } catch (error) {
+                console.error('Error clearing screen:', error);
+            }
+        });
+        
+        speedSlider.addEventListener('input', (e) => {
+            growthSpeed = parseInt(e.target.value);
+            const labels = ['Very Slow', 'Slow', 'Medium', 'Fast', 'Very Fast'];
+            speedLabel.textContent = labels[growthSpeed - 1];
+        });
+        
+        densitySlider.addEventListener('input', (e) => {
+            nodeDensity = parseInt(e.target.value);
+            const labels = ['Sparse', 'Light', 'Normal', 'Dense', 'Very Dense'];
+            densityLabel.textContent = labels[nodeDensity - 1];
+        });
+        
+        testGestureBtn.addEventListener('click', () => {
+            isTestMode = !isTestMode;
+            testGestureBtn.textContent = isTestMode ? 'Stop Test' : 'Test Mode';
+            
+            if (isTestMode) {
+                const testGestures = ['open', 'peace', 'fist'];
+                let gestureIndex = 0;
+                
+                const testInterval = setInterval(() => {
+                    if (!isTestMode) {
+                        clearInterval(testInterval);
+                        return;
+                    }
+                    
+                    const gesture = testGestures[gestureIndex % 3];
+                    const testX = width/2 + (Math.random() - 0.5) * 200;
+                    const testY = height/2 + (Math.random() - 0.5) * 200;
+                    
+                    processGesture({
+                        gesture: gesture,
+                        confidence: 85,
+                        center: { x: testX, y: testY }
+                    });
+                    
+                    gestureIndex++;
+                }, 2000);
+            }
+        });
+        
+        recalibrateBtn.addEventListener('click', () => {
+            previousImageData = null;
+            motionHistory.length = 0;
+            updateDetectionStatus('Recalibrating...', 'yellow');
+        });
+
+        // Initialize everything in proper order
+        console.log('🚀 Starting application initialization...');
+        
+        // Step 1: Initialize canvas and dimensions
+        console.log('📐 Setting up canvas...');
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Step 2: Initialize arrays
+        console.log('📦 Initializing data structures...');
+        nodeSystems = [];
+        nodeInteractions = [];
+        
+        // Step 3: Create initial content
+        console.log('🌱 Creating initial node system...');
+        try {
+            nodeSystems.push(new NodeSystem(width * 0.5, height * 0.5, 'normal'));
+            console.log(`✅ Initial node created at (${(width * 0.5).toFixed(1)}, ${(height * 0.5).toFixed(1)})`);
+        } catch (error) {
+            console.error('❌ Error creating initial node:', error);
+        }
+        
+        // Step 4: Start camera if enabled
+        if (gestureEnabled) {
+            console.log('📷 Starting camera...');
+            try {
+                startVideo();
+            } catch (error) {
+                console.error('❌ Camera initialization failed:', error);
+            }
+        } else {
+            console.log('📷 Camera disabled');
+        }
+        
+        // Step 5: Start animation loop
+        console.log('🎬 Starting animation loop...');
+        requestAnimationFrame(animate);
+        
+        console.log('✅ Application initialized successfully!');
+    </script>
+</body>
+</html>
