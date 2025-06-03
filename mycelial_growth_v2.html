@@ -1,0 +1,698 @@
+        // Terminal bulbous structures (visible at branch ends in the photos)
+        class TerminalBulb {
+            constructor(x, y, parentX, parentY, nodeSystem) {
+                this.x = x;
+                this.y = y;
+                this.parentX = parentX;
+                this.parentY = parentY;
+                this.size = 1 + Math.random() * 3;
+                this.nodeSystem = nodeSystem;
+                this.creationTime = Date.now();
+                this.lifespan = 15000 + Math.random() * 5000;
+                this.opacity = 1;
+                this.isDying = false;
+                this.growthProgress = 0;
+                this.growthSpeed = 0.03 + Math.random() * 0.05;
+            }
+            
+            grow() {
+                if (this.isDying) {
+                    // Handle fading
+                    const currentTime = Date.now();
+                    const age = currentTime - this.creationTime;
+                    if (age > this.lifespan) {
+                        this.opacity = Math.max(0, 1 - (age - this.lifespan) / 2000);
+                        if (this.opacity <= 0) {
+                            return false; // Bulb is completely faded out
+                        }
+                    }
+                }
+                
+                // Handle growth
+                if (this.growthProgress < 1) {
+                    this.growthProgress += this.growthSpeed;
+                    if (this.growthProgress > 1) this.growthProgress = 1;
+                }
+                
+                // Mark for dying if parent system is dying
+                if (this.nodeSystem.dying && !this.isDying) {
+                    this.isDying = true;
+                }
+                
+                return this.opacity > 0;
+            }
+            
+            draw() {
+                // Skip if not started growing yet
+                if (this.growthProgress <= 0) return;
+                
+                // Calculate size based on growth
+                const currentSize = this.size * this.growthProgress;
+                
+                // Calculate color (golden yellow for terminal structures)
+                const hue = 47 + Math.random() * 10; // Golden yellow
+                const saturation = 90 + Math.random() * 10;
+                const lightness = 55 + Math.random() * 10;
+                
+                // Draw the terminal bulb
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, currentSize, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${this.opacity})`;
+                ctx.fill();
+                
+                // Draw connecting line to parent if just starting to grow
+                if (this.growthProgress < 0.5) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.parentX, this.parentY);
+                    ctx.lineTo(this.x, this.y);
+                    ctx.strokeStyle = `hsla(${hue}, ${saturation}%, ${lightness - 10}%, ${this.opacity * this.growthProgress})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+            }
+        }<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Mycelial Growth Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0a0a0a; /* Darker background to match image 2 */
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        .info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="info">Click anywhere to create mycelial growth nodes</div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        // Resize canvas to fill window
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Node data structure
+        class Node {
+            constructor(x, y, angle, length, generation, parentX, parentY, nodeSystem, thickness) {
+                this.x = x;
+                this.y = y;
+                this.startX = parentX || x;
+                this.startY = parentY || y;
+                this.angle = angle;
+                this.length = length;
+                this.generation = generation;
+                this.growthProgress = 0;
+                this.growthSpeed = 0.01 + Math.random() * 0.04; // More variable growth speeds
+                this.branchProbability = 0.22; // Increased branching probability
+                this.maxBranches = 3; // Increased maximum branches
+                this.branches = [];
+                this.thickness = thickness || (2.5 + Math.random() * 1.5);
+                this.nodeSystem = nodeSystem;
+                this.creationTime = Date.now();
+                this.lifespan = 15000 + Math.random() * 5000; // 15-20 seconds
+                this.opacity = 1;
+                this.isDying = false;
+                this.hasNodeBulb = Math.random() < 0.3; // 30% chance of forming a bulbous node
+                this.bulbSize = this.thickness * (2 + Math.random() * 2); // Size of bulbous node
+                this.hasTurns = Math.random() < 0.6; // 60% chance of having turns in the branch
+                this.turnPoints = [];
+                
+                // Create natural turns in longer branches
+                if (this.hasTurns && this.length > 30) {
+                    const numTurns = Math.floor(Math.random() * 3) + 1;
+                    for (let i = 0; i < numTurns; i++) {
+                        this.turnPoints.push({
+                            position: 0.2 + Math.random() * 0.6, // Position along growth (0.2-0.8)
+                            angle: (Math.random() * 0.8 - 0.4) // Angle change (-0.4 to 0.4 radians)
+                        });
+                    }
+                    // Sort turn points by position
+                    this.turnPoints.sort((a, b) => a.position - b.position);
+                }
+            }
+
+            grow() {
+                if (this.isDying) {
+                    // Handle fading
+                    const currentTime = Date.now();
+                    const age = currentTime - this.creationTime;
+                    if (age > this.lifespan) {
+                        this.opacity = Math.max(0, 1 - (age - this.lifespan) / 2000);
+                        if (this.opacity <= 0) {
+                            return false; // Node is completely faded out
+                        }
+                    }
+                }
+
+                // Continue growing if not complete
+                if (this.growthProgress < 1) {
+                    this.growthProgress += this.growthSpeed;
+                    if (this.growthProgress >= 1) {
+                        this.growthProgress = 1;
+                        
+                        // Add branches when this node finishes growing
+                        if (this.generation < 20 && this.thickness > 0.3) { // Allow more generations of growth
+                            const numBranches = Math.floor(Math.random() * this.maxBranches) + 1;
+                            
+                            // Create terminal bulbous structures for end nodes
+                            const createTerminalStructures = this.generation > 12 && Math.random() < 0.4;
+                            
+                            if (createTerminalStructures) {
+                                // Create a cluster of small terminal bulbs (like in image 2)
+                                const endX = this.calculateEndX();
+                                const endY = this.calculateEndY();
+                                const numBulbs = 3 + Math.floor(Math.random() * 5);
+                                const clusterRadius = 5 + Math.random() * 15;
+                                
+                                for (let i = 0; i < numBulbs; i++) {
+                                    const bulbAngle = Math.random() * Math.PI * 2;
+                                    const distance = Math.random() * clusterRadius;
+                                    const bulbX = endX + Math.cos(bulbAngle) * distance;
+                                    const bulbY = endY + Math.sin(bulbAngle) * distance;
+                                    
+                                    this.branches.push(new TerminalBulb(
+                                        bulbX, bulbY, endX, endY, this.nodeSystem
+                                    ));
+                                }
+                            } else {
+                                // Regular branching
+                                for (let i = 0; i < numBranches; i++) {
+                                    if (Math.random() < this.branchProbability) {
+                                        // More variable branching angles based on generation
+                                        const angleFactor = Math.min(1.5, 0.8 + (this.generation * 0.05));
+                                        const angleChange = (Math.random() * 1.8 * angleFactor) - (0.9 * angleFactor);
+                                        const newAngle = this.angle + angleChange;
+                                        
+                                        // More variable lengths and thicknesses
+                                        let newLength;
+                                        let newThickness;
+                                        
+                                        if (this.generation < 5) {
+                                            // Primary branches - longer and thicker
+                                            newLength = this.length * (0.8 + Math.random() * 0.6);
+                                            newThickness = this.thickness * (0.75 + Math.random() * 0.25);
+                                        } else if (this.generation < 10) {
+                                            // Secondary branches - medium
+                                            newLength = this.length * (0.6 + Math.random() * 0.5);
+                                            newThickness = this.thickness * (0.6 + Math.random() * 0.2);
+                                        } else {
+                                            // Fine terminal branches - thinner and shorter
+                                            newLength = this.length * (0.4 + Math.random() * 0.4);
+                                            newThickness = this.thickness * (0.4 + Math.random() * 0.15);
+                                        }
+                                        
+                                        const endX = this.calculateEndX();
+                                        const endY = this.calculateEndY();
+                                        
+                                        this.branches.push(new Node(
+                                            endX, endY, newAngle, newLength,
+                                            this.generation + 1, endX, endY, this.nodeSystem, newThickness
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Process all branches
+                for (let i = this.branches.length - 1; i >= 0; i--) {
+                    const survived = this.branches[i].grow();
+                    if (!survived) {
+                        this.branches.splice(i, 1);
+                    }
+                }
+
+                // Mark for dying if parent system is dying
+                if (this.nodeSystem.dying && !this.isDying) {
+                    this.isDying = true;
+                }
+
+                return this.opacity > 0 || this.branches.length > 0;
+            }
+            
+            // Helper method to calculate current endpoint with turns
+            calculateEndX() {
+                if (!this.hasTurns || this.turnPoints.length === 0) {
+                    return this.startX + Math.cos(this.angle) * this.length * this.growthProgress;
+                }
+                
+                // Apply turn points to calculate the actual end position
+                let currentX = this.startX;
+                let currentY = this.startY;
+                let currentAngle = this.angle;
+                let lastPosition = 0;
+                
+                for (const turn of this.turnPoints) {
+                    if (this.growthProgress >= turn.position) {
+                        // Calculate position up to this turn
+                        const segmentLength = this.length * (turn.position - lastPosition);
+                        currentX += Math.cos(currentAngle) * segmentLength;
+                        currentY += Math.sin(currentAngle) * segmentLength;
+                        // Apply turn
+                        currentAngle += turn.angle;
+                        lastPosition = turn.position;
+                    } else {
+                        break;
+                    }
+                }
+                
+                // Calculate final segment
+                const remainingLength = this.length * (this.growthProgress - lastPosition);
+                return currentX + Math.cos(currentAngle) * remainingLength;
+            }
+            
+            calculateEndY() {
+                if (!this.hasTurns || this.turnPoints.length === 0) {
+                    return this.startY + Math.sin(this.angle) * this.length * this.growthProgress;
+                }
+                
+                // Apply turn points to calculate the actual end position
+                let currentX = this.startX;
+                let currentY = this.startY;
+                let currentAngle = this.angle;
+                let lastPosition = 0;
+                
+                for (const turn of this.turnPoints) {
+                    if (this.growthProgress >= turn.position) {
+                        // Calculate position up to this turn
+                        const segmentLength = this.length * (turn.position - lastPosition);
+                        currentX += Math.cos(currentAngle) * segmentLength;
+                        currentY += Math.sin(currentAngle) * segmentLength;
+                        // Apply turn
+                        currentAngle += turn.angle;
+                        lastPosition = turn.position;
+                    } else {
+                        break;
+                    }
+                }
+                
+                // Calculate final segment
+                const remainingLength = this.length * (this.growthProgress - lastPosition);
+                return currentY + Math.sin(currentAngle) * remainingLength;
+            }
+
+            draw() {
+                // Calculate current end points based on growth progress and turns
+                const endX = this.calculateEndX();
+                const endY = this.calculateEndY();
+
+                // Calculate color based on generation and age
+                const saturation = Math.max(60, 90 - this.generation * 2);
+                const lightness = Math.min(60, 40 + this.generation * 1.5);
+                
+                // Age-based hue shift (newer = more white/pale yellow, older = more golden yellow)
+                const ageRatio = Math.min(1, (Date.now() - this.nodeSystem.creationTime) / 8000);
+                // Shift from pale yellow (60) toward golden yellow (40)
+                const hue = 60 - (ageRatio * 20); 
+
+                // Draw with turns if applicable
+                if (this.hasTurns && this.turnPoints.length > 0) {
+                    let currentX = this.startX;
+                    let currentY = this.startY;
+                    let currentAngle = this.angle;
+                    let lastPosition = 0;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(currentX, currentY);
+                    
+                    // Draw segments up to each turn point
+                    for (const turn of this.turnPoints) {
+                        if (this.growthProgress >= turn.position) {
+                            // Draw segment up to this turn
+                            const segmentLength = this.length * (turn.position - lastPosition);
+                            const nextX = currentX + Math.cos(currentAngle) * segmentLength;
+                            const nextY = currentY + Math.sin(currentAngle) * segmentLength;
+                            
+                            ctx.lineTo(nextX, nextY);
+                            
+                            // Update position and angle for next segment
+                            currentX = nextX;
+                            currentY = nextY;
+                            currentAngle += turn.angle;
+                            lastPosition = turn.position;
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    // Draw final segment
+                    if (this.growthProgress > lastPosition) {
+                        const remainingLength = this.length * (this.growthProgress - lastPosition);
+                        const finalX = currentX + Math.cos(currentAngle) * remainingLength;
+                        const finalY = currentY + Math.sin(currentAngle) * remainingLength;
+                        ctx.lineTo(finalX, finalY);
+                    }
+                    
+                    ctx.strokeStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${this.opacity})`;
+                    ctx.lineWidth = this.thickness;
+                    ctx.stroke();
+                } else {
+                    // Draw straight line without turns
+                    ctx.beginPath();
+                    ctx.moveTo(this.startX, this.startY);
+                    ctx.lineTo(endX, endY);
+                    ctx.strokeStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${this.opacity})`;
+                    ctx.lineWidth = this.thickness;
+                    ctx.stroke();
+                }
+
+                // Draw bulbous node at branch point if applicable
+                if (this.hasNodeBulb && this.growthProgress === 1) {
+                    ctx.beginPath();
+                    ctx.arc(endX, endY, this.bulbSize, 0, Math.PI * 2);
+                    ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness + 5}%, ${this.opacity * 0.9})`;
+                    ctx.fill();
+                }
+
+                // Draw branches
+                for (const branch of this.branches) {
+                    branch.draw();
+                }
+            }
+        }
+
+        // Node system to manage a collection of nodes from a single click
+        class NodeSystem {
+            constructor(x, y) {
+                this.nodes = [];
+                this.creationTime = Date.now();
+                this.dying = false;
+                
+                // Create initial branches in multiple directions
+                const numInitialBranches = 5 + Math.floor(Math.random() * 6); // 5-10 initial branches
+                
+                // Create either a radial pattern or a more directional pattern (like in the images)
+                const directionality = Math.random();
+                
+                if (directionality < 0.3) {
+                    // Fully radial pattern
+                    for (let i = 0; i < numInitialBranches; i++) {
+                        const angle = (Math.PI * 2 / numInitialBranches) * i + (Math.random() * 0.5 - 0.25);
+                        const length = 20 + Math.random() * 40;
+                        const thickness = 1.5 + Math.random() * 2;
+                        this.nodes.push(new Node(x, y, angle, length, 0, x, y, this, thickness));
+                    }
+                } else {
+                    // More directional pattern (like in image 2)
+                    const mainDirection = Math.random() * Math.PI * 2;
+                    const spread = Math.PI * 0.6; // 60 degree spread
+                    
+                    for (let i = 0; i < numInitialBranches; i++) {
+                        // Bias angles toward the main direction
+                        const angleOffset = (Math.random() * spread) - (spread / 2);
+                        const angle = mainDirection + angleOffset;
+                        
+                        // Variable lengths and thicknesses
+                        const length = 25 + Math.random() * 50;
+                        const thickness = 1.5 + Math.random() * 2;
+                        
+                        // Add some randomness to starting positions for more natural look
+                        const offsetDistance = Math.random() * 5;
+                        const startX = x + Math.cos(angle) * offsetDistance;
+                        const startY = y + Math.sin(angle) * offsetDistance;
+                        
+                        this.nodes.push(new Node(startX, startY, angle, length, 0, startX, startY, this, thickness));
+                    }
+                }
+            }
+
+            update() {
+                // Check if should start dying
+                const age = Date.now() - this.creationTime;
+                if (age > 15000 && !this.dying) { // Start dying after 15 seconds
+                    this.dying = true;
+                }
+
+                // Update all nodes
+                for (let i = this.nodes.length - 1; i >= 0; i--) {
+                    const survived = this.nodes[i].grow();
+                    if (!survived) {
+                        this.nodes.splice(i, 1);
+                    }
+                }
+                
+                // Add occasional new branches from existing nodes (anastomosis effect)
+                if (!this.dying && this.nodes.length > 0 && Math.random() < 0.03) {
+                    // Randomly select an existing node to sprout a new branch
+                    const sourceNodeIndex = Math.floor(Math.random() * this.nodes.length);
+                    const sourceNode = this.nodes[sourceNodeIndex];
+                    
+                    // Only add new branches from mature nodes
+                    if (sourceNode.growthProgress >= 0.8) {
+                        const endX = sourceNode.calculateEndX();
+                        const endY = sourceNode.calculateEndY();
+                        
+                        // Create a new branch with random angle
+                        const newAngle = Math.random() * Math.PI * 2;
+                        const newLength = 15 + Math.random() * 30;
+                        const newThickness = sourceNode.thickness * 0.7;
+                        
+                        this.nodes.push(new Node(
+                            endX, endY, newAngle, newLength,
+                            sourceNode.generation, endX, endY, this, newThickness
+                        ));
+                    }
+                }
+
+                // Return false if all nodes are gone
+                return this.nodes.length > 0;
+            }
+
+            draw() {
+                for (const node of this.nodes) {
+                    node.draw();
+                }
+            }
+        }
+
+        // Main app
+        const nodeSystems = [];
+        let lastUpdateTime = 0;
+        const nodeInteractions = [];
+        
+        // Track mouse movement for more natural interaction
+        let mouseX = 0;
+        let mouseY = 0;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let mouseSpeed = 0;
+        
+        function trackMouseMovement(e) {
+            const newX = e.clientX;
+            const newY = e.clientY;
+            
+            // Calculate mouse speed
+            const dx = newX - lastMouseX;
+            const dy = newY - lastMouseY;
+            mouseSpeed = Math.sqrt(dx*dx + dy*dy);
+            
+            // Update position
+            mouseX = newX;
+            mouseY = newY;
+            lastMouseX = newX;
+            lastMouseY = newY;
+        }
+        
+        window.addEventListener('mousemove', trackMouseMovement);
+        
+        // Create interactions (network connections) between nearby nodes
+        function checkForInteractions() {
+            nodeInteractions.length = 0; // Clear previous interactions
+            
+            // Check for nodes from different systems that are close to each other
+            for (let i = 0; i < nodeSystems.length; i++) {
+                const systemA = nodeSystems[i];
+                
+                for (let j = i + 1; j < nodeSystems.length; j++) {
+                    const systemB = nodeSystems[j];
+                    
+                    // Search for nodes that are close to each other
+                    for (const nodeA of systemA.nodes) {
+                        if (nodeA.growthProgress < 0.7) continue; // Only consider mature nodes
+                        const endXA = nodeA.calculateEndX();
+                        const endYA = nodeA.calculateEndY();
+                        
+                        for (const nodeB of systemB.nodes) {
+                            if (nodeB.growthProgress < 0.7) continue; // Only consider mature nodes
+                            const endXB = nodeB.calculateEndX();
+                            const endYB = nodeB.calculateEndY();
+                            
+                            // Calculate distance between nodes
+                            const dx = endXB - endXA;
+                            const dy = endYB - endYA;
+                            const distance = Math.sqrt(dx*dx + dy*dy);
+                            
+                            // If nodes are close enough, create a connection/interaction
+                            if (distance < 50 && Math.random() < 0.03) {
+                                nodeInteractions.push({
+                                    x1: endXA,
+                                    y1: endYA,
+                                    x2: endXB,
+                                    y2: endYB,
+                                    opacity: 1,
+                                    thickness: (nodeA.thickness + nodeB.thickness) * 0.3,
+                                    creationTime: Date.now()
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Occasionally create smaller auto-growth points
+        function addAutoGrowthPoints() {
+            if (nodeSystems.length > 0 && Math.random() < 0.01) {
+                // Select a random existing system
+                const sourceSystem = nodeSystems[Math.floor(Math.random() * nodeSystems.length)];
+                if (!sourceSystem || sourceSystem.dying) return;
+                
+                // Select a random node from the system
+                if (sourceSystem.nodes.length === 0) return;
+                const sourceNode = sourceSystem.nodes[Math.floor(Math.random() * sourceSystem.nodes.length)];
+                
+                // Calculate position near the end of the selected node
+                const endX = sourceNode.calculateEndX();
+                const endY = sourceNode.calculateEndY();
+                
+                // Add slight offset for the new growth point
+                const offsetAngle = Math.random() * Math.PI * 2;
+                const offsetDist = 10 + Math.random() * 30;
+                const newX = endX + Math.cos(offsetAngle) * offsetDist;
+                const newY = endY + Math.sin(offsetAngle) * offsetDist;
+                
+                // Create a new smaller growth point
+                nodeSystems.push(new NodeSystem(newX, newY));
+            }
+        }
+        
+        function animate(timestamp) {
+            // Control update frequency for performance
+            if (timestamp - lastUpdateTime > 30) { // 30ms interval for logic updates
+                checkForInteractions();
+                addAutoGrowthPoints();
+                lastUpdateTime = timestamp;
+            }
+            
+            // Clear with slight transparency for trailing effect
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Update and draw all node systems
+            for (let i = nodeSystems.length - 1; i >= 0; i--) {
+                const system = nodeSystems[i];
+                const alive = system.update();
+                if (alive) {
+                    system.draw();
+                } else {
+                    nodeSystems.splice(i, 1);
+                }
+            }
+            
+            // Draw network connections/interactions between nodes
+            for (let i = nodeInteractions.length - 1; i >= 0; i--) {
+                const interaction = nodeInteractions[i];
+                
+                // Calculate age and fade out over time
+                const age = Date.now() - interaction.creationTime;
+                if (age > 4000) {
+                    interaction.opacity = Math.max(0, 1 - (age - 4000) / 2000);
+                    if (interaction.opacity <= 0) {
+                        nodeInteractions.splice(i, 1);
+                        continue;
+                    }
+                }
+                
+                // Draw the connection
+                ctx.beginPath();
+                ctx.moveTo(interaction.x1, interaction.y1);
+                ctx.lineTo(interaction.x2, interaction.y2);
+                ctx.strokeStyle = `hsla(50, 80%, 60%, ${interaction.opacity * 0.6})`;
+                ctx.lineWidth = interaction.thickness;
+                ctx.stroke();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Handle clicks and interactions
+        canvas.addEventListener('click', (e) => {
+            nodeSystems.push(new NodeSystem(e.clientX, e.clientY));
+        });
+        
+        // Add drag-based growth (hold and drag)
+        let isDragging = false;
+        let lastDragX = 0;
+        let lastDragY = 0;
+        let dragTimer = 0;
+        
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastDragX = e.clientX;
+            lastDragY = e.clientY;
+            dragTimer = Date.now();
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            const currentTime = Date.now();
+            const timeDiff = currentTime - dragTimer;
+            
+            // Create growth points along drag path at intervals
+            if (timeDiff > 150) { // Every 150ms while dragging
+                const dx = e.clientX - lastDragX;
+                const dy = e.clientY - lastDragY;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                
+                // Only create new points if moved enough
+                if (distance > 40) {
+                    nodeSystems.push(new NodeSystem(e.clientX, e.clientY));
+                    lastDragX = e.clientX;
+                    lastDragY = e.clientY;
+                    dragTimer = currentTime;
+                }
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+        });
+        
+        // Start the animation
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
